@@ -6,21 +6,20 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
-	"runtime/trace"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 )
 
-const numLines = 100_000
+const numLines = 1_000
 
 func main() {
-	file := "file.trace"
-	f, _ := os.Create(file)
-	defer f.Close()
-	trace.Start(f)
-	defer trace.Stop()
+	//file := "file.trace"
+	//f, _ := os.Create(file)
+	//defer f.Close()
+	//trace.Start(f)
+	//defer trace.Stop()
 
 	filename := os.Args[1]
 	if err := run(filename); err != nil {
@@ -48,7 +47,8 @@ func run(filename string) error {
 	scanner.Buffer(buf, maxCapacity)
 
 	debug.SetGCPercent(800)
-	workers := runtime.NumCPU()
+	workers := runtime.GOMAXPROCS(-1)
+	fmt.Println(workers)
 	input := make(chan []string, 100)
 	output := make(chan map[string]*data, workers)
 	wg := &sync.WaitGroup{}
