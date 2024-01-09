@@ -28,10 +28,10 @@ func main() {
 }
 
 type data struct {
-	min   float64
-	max   float64
-	sum   float64
 	count int
+	min   float32
+	max   float32
+	sum   float32
 }
 
 func run(filename string) error {
@@ -115,12 +115,12 @@ func run(filename string) error {
 	fmt.Print("{")
 	for i := 0; i < len(names)-1; i++ {
 		d := m[names[i]]
-		mean := d.sum / float64(d.count)
+		mean := d.sum / float32(d.count)
 		fmt.Printf("%s=%.1f/%.1f/%.1f, ", names[i], d.min, mean, d.max)
 	}
 
 	d := m[names[len(names)-1]]
-	mean := d.sum / float64(d.count)
+	mean := d.sum / float32(d.count)
 	fmt.Printf("%s=%.1f/%.1f/%.1f", names[len(names)-1], d.min, mean, d.max)
 	fmt.Println("}")
 
@@ -138,6 +138,7 @@ func worker(input <-chan []string, output chan<- map[string]*data, wg *sync.Wait
 		city   string
 		s      string
 		value  float64
+		value2 float32
 		v      *data
 		exists bool
 		i      int
@@ -153,7 +154,8 @@ func worker(input <-chan []string, output chan<- map[string]*data, wg *sync.Wait
 			split = strings.Index(line, ";")
 			city = line[:split]
 			s = line[split+1:]
-			value, _ = strconv.ParseFloat(s, 64)
+			value, _ = strconv.ParseFloat(s, 32)
+			value2 = float32(value)
 			v, exists = m[city]
 			if !exists {
 				v = &data{
@@ -162,9 +164,9 @@ func worker(input <-chan []string, output chan<- map[string]*data, wg *sync.Wait
 				}
 				m[city] = v
 			}
-			v.min = min(v.min, value)
-			v.max = max(v.max, value)
-			v.sum += value
+			v.min = min(v.min, value2)
+			v.max = max(v.max, value2)
+			v.sum += value2
 			v.count++
 		}
 	}
