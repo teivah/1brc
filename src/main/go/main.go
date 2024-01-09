@@ -5,13 +5,23 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/debug"
+	"runtime/trace"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 )
 
+const numLines = 100_000
+
 func main() {
+	file := "file.trace"
+	f, _ := os.Create(file)
+	defer f.Close()
+	trace.Start(f)
+	defer trace.Stop()
+
 	filename := os.Args[1]
 	if err := run(filename); err != nil {
 		panic(err)
@@ -33,15 +43,13 @@ func run(filename string) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	const maxCapacity = 512 * 1024 // e.g., 512KB
+	const maxCapacity = 512 * 1024 // 512KB
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 
-	numLines := 10_000
-	//numLines := 1
-
+	debug.SetGCPercent(800)
 	workers := runtime.NumCPU()
-	input := make(chan []string, workers)
+	input := make(chan []string, 100)
 	output := make(chan map[string]*data, workers)
 	wg := &sync.WaitGroup{}
 	wg.Add(workers)
@@ -49,9 +57,11 @@ func run(filename string) error {
 		go worker(input, output, wg)
 	}
 
+	var lines []string
+	var i int
 	for {
-		lines := make([]string, 0, numLines)
-		for i := 0; i < numLines; i++ {
+		lines = make([]string, 0, numLines)
+		for i = 0; i < numLines; i++ {
 			if !scanner.Scan() {
 				break
 			}
@@ -75,7 +85,11 @@ func run(filename string) error {
 			m = m2
 			continue
 		}
-		for k, v2 := range m2 {
+		var (
+			k  string
+			v2 *data
+		)
+		for k, v2 = range m2 {
 			v, contains := m[k]
 			if !contains {
 				m[k] = v2
@@ -90,8 +104,9 @@ func run(filename string) error {
 	}
 
 	names := make([]string, len(m))
-	i := 0
-	for city := range m {
+	i = 0
+	var city string
+	for city = range m {
 		names[i] = city
 		i++
 	}
@@ -114,14 +129,32 @@ func run(filename string) error {
 
 func worker(input <-chan []string, output chan<- map[string]*data, wg *sync.WaitGroup) {
 	defer wg.Done()
-	m := make(map[string]*data)
-	for lines := range input {
-		for _, line := range lines {
-			split := strings.Index(line, ";")
-			city := line[:split]
-			s := line[split+1:]
-			value, _ := strconv.ParseFloat(s, 64)
-			v, exists := m[city]
+	m := make(map[string]*data, numLines)
+	var (
+		lines  []string
+		line   string
+		ok     bool
+		split  int
+		city   string
+		s      string
+		value  float64
+		v      *data
+		exists bool
+		i      int
+	)
+	for true {
+		lines, ok = <-input
+		if !ok {
+			break
+		}
+		i = 0
+		for ; i < len(lines); i++ {
+			line = lines[i]
+			split = strings.Index(line, ";")
+			city = line[:split]
+			s = line[split+1:]
+			value, _ = strconv.ParseFloat(s, 64)
+			v, exists = m[city]
 			if !exists {
 				v = &data{
 					min: 100.,
