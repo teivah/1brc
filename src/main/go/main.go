@@ -32,10 +32,10 @@ func run(filename string) error {
 	}
 	defer file.Close()
 
-	//const maxBufferSize = 4096
 	scanner := bufio.NewScanner(file)
-	//buf := make([]byte, maxBufferSize)
-	//scanner.Buffer(buf, maxBufferSize)
+	const maxCapacity = 512 * 1024 // e.g., 512KB
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
 
 	numLines := 10_000
 	//numLines := 1
